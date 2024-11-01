@@ -1,101 +1,128 @@
-import Image from "next/image";
+// pages/gif-creator.js
+"use client";
+import { useState, useCallback } from 'react';
+import Head from 'next/head';
 
-export default function Home() {
+export default function GifCreator() {
+  const [gifUrl, setGifUrl] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleCreateGif = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      // 清除之前的 URL
+      if (gifUrl) {
+        URL.revokeObjectURL(gifUrl);
+        setGifUrl('');
+      }
+
+      const response = await fetch('http://localhost:56218/api/create-gif', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        // 尝试读取错误信息
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to create GIF');
+        } catch (e) {
+          console.log('e',(e as Error));
+          throw new Error(`Failed to create GIF: ${response.statusText}`);
+        }
+      }
+
+      // 检查响应类型
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('image/gif')) {
+        throw new Error('Invalid response type from server');
+      }
+
+      // 创建 Blob URL
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      setGifUrl(url);
+
+    } catch (err) {
+      setError((err as Error).message);
+      console.error('Error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [gifUrl]);
+
+  const handleDownload = useCallback(() => {
+    if (gifUrl) {
+      const link = document.createElement('a');
+      link.href = gifUrl;
+      link.download = 'animation.gif';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  }, [gifUrl]);
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <div className="min-h-screen bg-gray-100 py-6 px-4 sm:px-6 lg:px-8">
+      <Head>
+        <title>GIF Creator</title>
+      </Head>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      <div className="max-w-2xl mx-auto bg-white rounded-lg shadow p-6">
+        <h1 className="text-2xl font-bold mb-6">GIF Creator</h1>
+        
+        <div className="space-y-6">
+          <div className="flex gap-4">
+            <button
+              onClick={handleCreateGif}
+              disabled={loading}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Creating GIF...
+                </span>
+              ) : (
+                'Create GIF'
+              )}
+            </button>
+
+            {gifUrl && (
+              <button
+                onClick={handleDownload}
+                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md transition-colors"
+              >
+                Download GIF
+              </button>
+            )}
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+              <p className="text-red-700">{error}</p>
+            </div>
+          )}
+
+          {gifUrl && (
+            <div className="border rounded-lg p-4">
+              <img 
+                src={gifUrl} 
+                alt="Generated GIF" 
+                className="max-w-full rounded"
+              />
+            </div>
+          )}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
     </div>
   );
 }
