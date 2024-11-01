@@ -19,7 +19,7 @@ export default function GifCreator() {
         setGifUrl('');
       }
 
-      const response = await fetch('http://localhost:56218/api/create-gif', {
+      const response = await fetch('/api/create-gif', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
